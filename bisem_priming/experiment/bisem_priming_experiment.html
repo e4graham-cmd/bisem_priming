@@ -512,14 +512,26 @@ function loadTrial(){
 
 async function runTrialSequence(trial, token){
   if(trial && trial.attention){
-    const expected = (trial.expectedKey || 'f').toLowerCase();
+    const expected = (trial.expectedKey || 'd').toLowerCase();
     primeDisplay.innerHTML = `Please press&nbsp;<strong>${expected.toUpperCase()}</strong>.`;
     State.targetOnsetTs = nowMs();
-    responseChoices.classList.add("hidden");
-    responseChoices.style.pointerEvents = 'none';
+
+    // Show D and K labels for attention checks
+    const attPanels = responseChoices.querySelectorAll('.choice-panel');
+    attPanels[0].innerHTML = '<div class="choice-key">D</div>';
+    attPanels[1].innerHTML = '<div class="choice-key">K</div>';
+    responseChoices.classList.remove("hidden");
+    responseChoices.style.pointerEvents = 'auto';
+    responseChoices.style.display = 'flex';
+
     State.awaitingChoice = true;
     return;
   }
+
+  // Restore normal F/J Word/Nonword labels for regular trials
+  const normPanels = responseChoices.querySelectorAll('.choice-panel');
+  normPanels[0].innerHTML = '<div class="choice-key">F</div><div class="choice-word">Word</div>';
+  normPanels[1].innerHTML = '<div class="choice-key">J</div><div class="choice-word">Nonword</div>';
 
   primeDisplay.textContent = "+";
   await sleep(CONFIG.fixationMs);

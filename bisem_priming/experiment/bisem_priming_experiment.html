@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Semantic Priming Study - Experiment 2</title>
+<style>
+  body { font-family: sans-serif; background:#f5f5f5; margin:0; padding:20px; }
+  .card { background:white; border-radius:8px; padding:20px; max-width:900px; margin:0 auto; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+  h1 { font-size:24px; margin-top:0; }
+  .btn { padding:10px 16px; border:none; border-radius:6px; cursor:pointer; margin-right:8px; }
+  .btn-primary { background:#007acc; color:white; }
+  .btn-primary:disabled { background:#a0aec0; color:#e2e8f0; cursor:not-allowed; }
+  .hidden { display:none; }
+  .progress { height:8px; background:#eee; border-radius:4px; margin:10px 0; overflow:hidden; }
+  .progress > div { height:100%; background:#007acc; width:0; transition:width .2s ease; }
+  .choices { display:flex; gap:14px; margin-top:14px; }
+  .choice-panel {
+    flex:1;
+    padding:18px 14px;
+    border-radius:10px;
+    border:1px solid #ddd;
+    background:#fafafa;
+    text-align:center;
+    user-select:none;
+  }
+  .choice-key {
+    font-size:18px;
+    font-weight:700;
+    color:#475569;
+    letter-spacing:0.08em;
+  }
+  .choice-word {
+    margin-top:10px;
+    font-size:24px;
+    font-weight:700;
+    color:#111827;
+  }
+  #primeDisplay {
+    margin:20px auto 10px;
+    max-width:700px;
+    min-height:90px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    border:2px dashed #cdd7e1;
+    border-radius:12px;
+    background:#fbfdff;
+    padding:24px;
+    font-size:44px;
+    font-weight:700;
+    color:#1f2937;
+  }
+  #feedback {
+    margin-top:12px;
+    min-height:30px;
+    text-align:center;
+    font-size:26px;
+    font-weight:700;
+  }
+  .feedback-correct { color:#15803d; }
+  .feedback-incorrect { color:#b91c1c; }
+</style>
+</head>
+<body>
+
+<div id="postStatus" style="display:none; text-align:center; margin:10px 0; font-size:13px; color:#065f46;"></div>
+
+<div class="card" id="screen-splash">
+  <h1>Welcome to the experiment, thank you for participating!</h1>
+  <p>Please advance to the next page for instructions.</p>
+  <button class="btn btn-primary" id="splashBtn">Continue</button>
+</div>
+
+<div class="card hidden" id="screen-instructions">
+  <h1>Instructions</h1>
+  <div style="max-width:760px; margin:0 auto; text-align:left; font-size:18px; line-height:1.6; color:#1f2937;">
+    <p>This is a lexical decision task. You will be shown two strings of letters, one after the other. Your job is to determine if the second of these strings makes a real word.</p>
+    <p>If it is a <strong>word</strong>, press <strong>F</strong>. If it is <strong>not</strong> a word, press <strong>J</strong>.</p>
+    <p>On the next page, there will be a series of practice trials. You will receive feedback on these trials, but not during the main task.</p>
+    <p>When ready, click "Start Practice" to continue.</p>
+  </div>
+  <br>
+  <button class="btn btn-primary" id="instructionsNextBtn">Start Practice</button>
+</div>
+
+<div class="card hidden" id="screen-demo-practice">
+  <h1>Practice Trials</h1>
+  <p>You will now complete 4 practice trials. You will receive feedback on your responses.</p>
+  <button class="btn btn-primary" id="startDemoPracticeBtn">Begin Practice</button>
+</div>
+
+<div class="card hidden" id="screen-practice-done">
+  <h1>Practice complete!</h1>
+  <p>The main task will begin on the next page. You will no longer be given feedback. Please respond as <strong>quickly</strong> and <strong>accurately</strong> as possible. When ready, click "Start Task" to begin.</p>
+  <button class="btn btn-primary" id="startMainBtn">Start Task</button>
+</div>
+
+<div class="card hidden" id="screen-trials">
+  <div class="progress"><div id="progressBar"></div></div>
+  <h1 id="trialTitle">Trial</h1>
+  <div id="primeDisplay">Waiting to start...</div>
+  <div class="choices hidden" id="responseChoices" style="margin-top:14px;">
+    <div class="choice-panel">
+      <div class="choice-key">F</div>
+      <div class="choice-word">Word</div>
+    </div>
+    <div class="choice-panel">
+      <div class="choice-key">J</div>
+      <div class="choice-word">Nonword</div>
+    </div>
+  </div>
+  <div id="feedback" class="hidden"></div>
+</div>
+
+<div class="card hidden" id="screen-finish">
+  <h1>You have reached the end of the experiment. Thank you for participating!</h1>
+</div>
+
+<div class="card hidden" id="screen-demographics">
+  <h1>Almost done!</h1>
+  <p>Before finishing, you will be requested to respond to the demographic question below.</p>
+  <p style="margin-top:20px;"><strong>Did you begin learning Spanish before the age of 5?</strong></p>
+  <div class="choices" style="margin-top:14px;" id="demChoices">
+    <div class="choice-panel" data-value="yes">
+      <div class="choice-word">Yes</div>
+    </div>
+    <div class="choice-panel" data-value="no">
+      <div class="choice-word">No</div>
+    </div>
+  </div>
+  <br>
+  <button class="btn btn-primary" id="submitDemographicsBtn" disabled>Submit</button>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzx4OR_t2Pfi84M04shTso13osdLVGhXFESLZz0_lIijkGUycp0px8v0jDwskL0Fmai/exec";
+const TARGET_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1ol6926h7r4-3CaEuqnQf_lzreWaxI88xtEPGeFn5B8I/edit?gid=0#gid=0";
+
+const CONFIG = {
+  trialsUrl: "../data/bisem_priming_trials - Sheet1.csv",
+  practiceUrl: "../data/bisem_priming_trials - Sheet1.csv",
+  fixationMs: 600,
+  wordPrimeDisplayMs: 629,
+  preTargetGapMs: 400,
+  targetReadyDelayMs: 100,
+  feedbackMs: 500,
+};
+
+let MAIN_TRIALS = [];
+let PRACTICE_TRIALS = [];
+
+// Demo practice trials (4 trials with specific prime/target pairs)
+const DEMO_PRACTICE_TRIALS = [
+  { trial_id: "demo_1", prime_text: "sad", target_word: "happy", correct_response: "word", trial_type: "demo", target_label: "word_target", phase: "demo" },
+  { trial_id: "demo_2", prime_text: "table", target_word: "blick", correct_response: "nonword", trial_type: "demo", target_label: "nonword_target", phase: "demo" },
+  { trial_id: "demo_3", prime_text: "noche", target_word: "bottle", correct_response: "word", trial_type: "demo", target_label: "word_target", phase: "demo" },
+  { trial_id: "demo_4", prime_text: "conejo", target_word: "dax", correct_response: "nonword", trial_type: "demo", target_label: "nonword_target", phase: "demo" },
+];
+
+const State = {
+  participantId: null,
+  phase: "idle", // practice | main
+  trialIndex: 0,
+  activeTrials: [],
+  trialRenderToken: 0,
+  awaitingChoice: false,
+  targetOnsetTs: null,
+  recordBuffer: [],
+  fluency: "",
+};
+
+const screenTrials = document.getElementById("screen-trials");
+const progressBar = document.getElementById("progressBar");
+const trialTitle = document.getElementById("trialTitle");
+const primeDisplay = document.getElementById("primeDisplay");
+const responseChoices = document.getElementById("responseChoices");
+const feedbackEl = document.getElementById("feedback");
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function shuffleNoConsecutive(arr, getKey){
+  // Fisher-Yates shuffle
+  const a = [...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  
+  // If any consecutive items have the same key, swap with a later item
+  for(let i=0; i<a.length-1; i++){
+    if(getKey(a[i]) === getKey(a[i+1])){
+      // Find a position further ahead with a different key
+      let swapped = false;
+      for(let k=i+2; k<a.length; k++){
+        if(getKey(a[k]) !== getKey(a[i])){
+          [a[i+1], a[k]] = [a[k], a[i+1]];
+          swapped = true;
+          break;
+        }
+      }
+      // If no different key found ahead, look backward
+      if(!swapped){
+        for(let k=i; k>=0; k--){
+          if(getKey(a[k]) !== getKey(a[i+1])){
+            [a[i+1], a[k]] = [a[k], a[i+1]];
+            break;
+          }
+        }
+      }
+    }
+  }
+  return a;
+}
+function nowMs(){ return performance.now(); }
+function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
+function getNextParticipantNumber(){
+  try{
+    const key = 'bisem_next_participant';
+    let next = parseInt(localStorage.getItem(key) || '1', 10);
+    if(Number.isNaN(next) || next < 1) next = 1;
+    const assigned = next;
+    localStorage.setItem(key, String(next + 1));
+    return assigned;
+  }catch(e){
+    return 1;
+  }
+}
+
+function show(id){ document.getElementById(id).classList.remove("hidden"); }
+function hide(id){ document.getElementById(id).classList.add("hidden"); }
+function currentTrial(){ return State.activeTrials[State.trialIndex]; }
+
+async function sendToGoogleSheet(obj){
+  const fd = new FormData();
+  for(const k in obj) fd.append(k, obj[k] ?? "");
+  const statusEl = document.getElementById('postStatus');
+  try{
+    const resp = await fetch(SCRIPT_URL, { method: 'POST', body: fd });
+    if(!resp.ok){
+      console.error('Sheet POST failed', resp.status);
+      if(statusEl){ showPostStatus('Save failed'); }
+    } else {
+      const txt = await resp.text();
+      console.log('Sheet POST OK:', txt);
+      if(statusEl){ showPostStatus('Saved'); }
+    }
+  }catch(err){
+    console.error('Sheet POST error:', err);
+    if(statusEl){ showPostStatus('Save error'); }
+  }
+}
+
+function showPostStatus(msg){
+  const el = document.getElementById('postStatus');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(()=>{ el.style.display = 'none'; }, 1800);
+}
+
+function parseCSVRows(text){
+  const lines = text.trim().split("\n").filter(Boolean);
+  if(lines.length < 2) return { headers: [], rows: [] };
+  const headers = lines[0].split(",").map(h => h.trim());
+  const rows = lines.slice(1).map(line => line.split(",").map(c => c.trim()));
+  return { headers, rows };
+}
+
+function findColumn(headers, candidates){
+  for(const name of candidates){
+    const idx = headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+    if(idx !== -1) return idx;
+  }
+  return -1;
+}
+
+function parseMainTrials(csvText){
+  const { headers, rows } = parseCSVRows(csvText);
+  const idIdx = findColumn(headers, ["#", "trial", "trial_id"]);
+  const wordIdx = findColumn(headers, ["word_target", "english_target"]);
+  const nonwordIdx = findColumn(headers, ["nonword_target"]);
+  const engRelIdx = findColumn(headers, ["eng_rel_prime"]);
+  const engUnrelIdx = findColumn(headers, ["eng_un_prime"]);
+  const spanRelIdx = findColumn(headers, ["span_rel_prime"]);
+  const spanUnrelIdx = findColumn(headers, ["span_un_prime"]);
+
+  if(wordIdx === -1 || nonwordIdx === -1) return [];
+
+  const out = [];
+  for(let i = 0; i < rows.length; i++){
+    const cells = rows[i];
+    const baseId = idIdx !== -1 ? (cells[idIdx] || String(i+1)) : String(i+1);
+    const wordTarget = cells[wordIdx] || "";
+    const nonwordTarget = cells[nonwordIdx] || "";
+    
+    // Get all four prime types
+    const primes = [
+      { prime: cells[engRelIdx], label: "eng_rel_prime" },
+      { prime: cells[engUnrelIdx], label: "eng_un_prime" },
+      { prime: cells[spanRelIdx], label: "span_rel_prime" },
+      { prime: cells[spanUnrelIdx], label: "span_un_prime" },
+    ];
+
+    const targetSpecs = [
+      { target: wordTarget, correct: "word", target_label: "word_target" },
+      { target: nonwordTarget, correct: "nonword", target_label: "nonword_target" },
+    ];
+
+    for(const t of targetSpecs){
+      if(!t.target) continue;
+      for(const p of primes){
+        if(!p.prime) continue;
+        out.push({
+          trial_id: `${baseId}_${t.target_label}_${p.label}`,
+          source_row_id: baseId,
+          prime_type: "word",
+          prime_text: p.prime,
+          target_word: t.target,
+          correct_response: t.correct,
+          trial_type: p.label,
+          target_label: t.target_label,
+          phase: "main",
+        });
+      }
+    }
+  }
+  return out;
+}
+
+function parsePracticeTrials(csvText){
+  const { headers, rows } = parseCSVRows(csvText);
+  const idIdx = findColumn(headers, ["#", "trial", "trial_id"]);
+  const wordIdx = findColumn(headers, ["word_target", "english_target"]);
+  const nonwordIdx = findColumn(headers, ["nonword_target"]);
+  const engRelIdx = findColumn(headers, ["eng_rel_prime"]);
+  const engUnrelIdx = findColumn(headers, ["eng_un_prime"]);
+  const spanRelIdx = findColumn(headers, ["span_rel_prime"]);
+  const spanUnrelIdx = findColumn(headers, ["span_un_prime"]);
+
+  if(wordIdx === -1 || nonwordIdx === -1) return [];
+
+  const out = [];
+  for(let i = 0; i < rows.length; i++){
+    const cells = rows[i];
+    const baseId = idIdx !== -1 ? (cells[idIdx] || String(i+1)) : String(i+1);
+    const wordTarget = cells[wordIdx] || "";
+    const nonwordTarget = cells[nonwordIdx] || "";
+    
+    // Get all four prime types (same as main trials)
+    const primes = [
+      { prime: cells[engRelIdx], label: "eng_rel_prime" },
+      { prime: cells[engUnrelIdx], label: "eng_un_prime" },
+      { prime: cells[spanRelIdx], label: "span_rel_prime" },
+      { prime: cells[spanUnrelIdx], label: "span_un_prime" },
+    ];
+
+    const targetSpecs = [
+      { target: wordTarget, correct: "word", target_label: "word_target" },
+      { target: nonwordTarget, correct: "nonword", target_label: "nonword_target" },
+    ];
+
+    for(const t of targetSpecs){
+      if(!t.target) continue;
+      for(const p of primes){
+        if(!p.prime) continue;
+        out.push({
+          trial_id: `${baseId}_${t.target_label}_${p.label}_practice`,
+          prime_type: "word",
+          prime_text: p.prime,
+          target_word: t.target,
+          correct_response: t.correct,
+          trial_type: p.label,
+          target_label: t.target_label,
+          phase: "practice",
+        });
+      }
+    }
+  }
+
+  return out;
+}
+
+async function loadAllTrials(){
+  try {
+    const [mainResp, practiceResp] = await Promise.all([
+      fetch(CONFIG.trialsUrl),
+      fetch(CONFIG.practiceUrl),
+    ]);
+
+    if(!mainResp.ok) throw new Error(`Failed to load bisem_priming_trials - Sheet1.csv (${mainResp.status})`);
+    if(!practiceResp.ok) throw new Error(`Failed to load bisem_priming_trials - Sheet1.csv (${practiceResp.status})`);
+
+    MAIN_TRIALS = parseMainTrials(await mainResp.text());
+    PRACTICE_TRIALS = parsePracticeTrials(await practiceResp.text());
+
+    if(MAIN_TRIALS.length === 0) throw new Error("No valid main trials parsed from bisem_priming_trials - Sheet1.csv");
+    if(PRACTICE_TRIALS.length === 0) throw new Error("No valid practice trials parsed from bisem_priming_trials - Sheet1.csv");
+
+    return true;
+  } catch (err) {
+    console.error(err);
+    alert("Could not load experiment files. Check console for details.");
+    return false;
+  }
+}
+
+function clearFeedback(){
+  feedbackEl.textContent = "";
+  feedbackEl.className = "hidden";
+}
+
+function showFeedback(isCorrect){
+  feedbackEl.textContent = isCorrect ? "Correct!" : "Incorrect!";
+  feedbackEl.className = isCorrect ? "feedback-correct" : "feedback-incorrect";
+}
+
+function updateProgress(){
+  const t = currentTrial();
+  // Count only non-attention trials for progress display
+  const totalMain = State.activeTrials.filter(x => x && !x.attention).length || 0;
+  const completedMain = State.activeTrials.slice(0, State.trialIndex).filter(x => x && !x.attention).length || 0;
+
+  // Progress bar should reflect main-trial progress (exclude attention checks)
+  let pct = 0;
+  if(totalMain > 0){
+    if(t && t.attention){
+      pct = Math.round((completedMain / totalMain) * 100);
+    } else {
+      pct = Math.round(((completedMain + 1) / totalMain) * 100);
+    }
+  }
+  progressBar.style.width = `${pct}%`;
+
+  let label = "Trial";
+  if(State.phase === "demo") label = "Practice Trial";
+
+  // Attention trials show a special label and do not include numeric counts
+  if(t && t.attention){
+    trialTitle.textContent = "Attention check";
+  } else {
+    const displayNum = totalMain > 0 ? (completedMain + 1) : 0;
+    trialTitle.textContent = `${label} ${displayNum} of ${totalMain}`;
+  }
+}
+
+function startDemoPractice(){
+  State.phase = "demo";
+  State.activeTrials = [...DEMO_PRACTICE_TRIALS];
+  State.trialIndex = 0;
+  show("screen-trials");
+  loadTrial();
+}
+
+function startPractice(){
+  State.phase = "practice";
+  State.activeTrials = shuffleNoConsecutive([...PRACTICE_TRIALS], t => t.target_word);
+  State.trialIndex = 0;
+  hide("screen-practice-done");
+  show("screen-trials");
+  loadTrial();
+}
+
+function startMain(){
+  State.phase = "main";
+  // create shuffled main trials then insert attention checks after specified positions
+  let sequence = shuffleNoConsecutive([...MAIN_TRIALS], t => t.target_word);
+  // positions (1-based): after trial 40, 80, 120 -> insert at indices 40, 80, 120
+  const attentionPositions = [40, 80, 120];
+  // insert attention checks; adjust for prior insertions by inserting in ascending order
+  for(const pos of attentionPositions){
+    if(pos <= sequence.length){
+      const expectedKey = Math.random() < 0.5 ? 'f' : 'j';
+      const att = {
+        trial_id: `attention_${pos}`,
+        attention: true,
+        expectedKey: expectedKey,
+        // keep metadata fields for consistency
+        prime_text: "",
+        target_word: "",
+        trial_type: 'attention',
+        target_label: '',
+        phase: 'main'
+      };
+      sequence.splice(pos, 0, att);
+    }
+  }
+  State.activeTrials = sequence;
+  State.trialIndex = 0;
+  hide("screen-practice-done");
+  show("screen-trials");
+  loadTrial();
+}
+
+function loadTrial(){
+  const trial = currentTrial();
+  if(!trial){
+    if(State.phase === "demo"){
+      // Demo practice done — show practice-complete page before main task
+      hide("screen-trials");
+      show("screen-practice-done");
+      return;
+    }
+    finishStudy();
+    return;
+  }
+
+  const token = ++State.trialRenderToken;
+  State.awaitingChoice = false;
+  State.targetOnsetTs = null;
+
+  updateProgress();
+  clearFeedback();
+  responseChoices.classList.add("hidden");
+  responseChoices.style.pointerEvents = 'none';
+
+  runTrialSequence(trial, token);
+}
+
+async function runTrialSequence(trial, token){
+  // Handle attention checks differently: show instruction and enable responses immediately
+  if(trial && trial.attention){
+    // show instruction; only F should be bolded per spec
+    const expected = (trial.expectedKey || 'f').toLowerCase();
+    // Bold the instructed letter (F or J)
+    primeDisplay.innerHTML = `Please press <strong>${expected.toUpperCase()}</strong>.`;
+    // set target onset timestamp for RT calculation
+    State.targetOnsetTs = nowMs();
+    // hide the choice panels for attention checks (no clickable options needed)
+    responseChoices.classList.add("hidden");
+    responseChoices.style.pointerEvents = 'none';
+    // still accept F/J key presses
+    State.awaitingChoice = true;
+    return;
+  }
+
+  primeDisplay.textContent = "+";
+  await sleep(CONFIG.fixationMs);
+  if(token !== State.trialRenderToken) return;
+
+  primeDisplay.textContent = trial.prime_text;
+  await sleep(CONFIG.wordPrimeDisplayMs);
+  if(token !== State.trialRenderToken) return;
+
+  primeDisplay.textContent = "";
+  await sleep(CONFIG.preTargetGapMs);
+  if(token !== State.trialRenderToken) return;
+
+  primeDisplay.textContent = trial.target_word;
+  State.targetOnsetTs = nowMs();
+  await sleep(CONFIG.targetReadyDelayMs);
+  if(token !== State.trialRenderToken) return;
+
+  responseChoices.classList.remove("hidden");
+  responseChoices.style.pointerEvents = 'auto';
+  State.awaitingChoice = true;
+}
+
+async function recordChoice(side){
+  if(!State.awaitingChoice) return;
+  State.awaitingChoice = false;
+
+  const trial = currentTrial();
+  const rtFloat = (nowMs() - (State.targetOnsetTs ?? nowMs()));
+  const rtFormatted = Number(rtFloat).toFixed(3); // ms with up to 3 decimal places
+
+  // Default response mapping (for standard trials)
+  let response = side === "left" ? "word" : "nonword";
+  let isCorrect = response === trial.correct_response;
+
+  // Special handling for attention checks: expectedKey is 'f' or 'j'
+  if(trial && trial.attention){
+    const pressedKey = side === 'left' ? 'f' : 'j';
+    isCorrect = pressedKey === (trial.expectedKey || 'f');
+    // for attention rows, record the pressed key (uppercase)
+    response = pressedKey.toUpperCase();
+  }
+
+  const record = {
+    participant: State.participantId,
+    block: State.phase === 'demo' ? 'Practice' : (State.phase === 'practice' ? 'Practice' : 'Main'),
+    trial_index: State.trialIndex + 1,
+    trial_id: trial.trial_id,
+    source_row_id: trial.source_row_id || "",
+    prime: trial.attention ? "attention" : (trial.prime_text || ""),
+    target: trial.attention ? ( (trial.expectedKey||"").toUpperCase() ) : (trial.target_word || ""),
+    reaction_time: rtFormatted,
+    accuracy: isCorrect ? 'correct' : 'incorrect',
+    fluency: State.fluency || "",
+    choice: response,
+    timestamp_iso: new Date().toISOString(),
+  };
+
+  // For main trials, buffer records until demographics are provided so we can attach `fluency`.
+  if(State.phase === 'main'){
+    State.recordBuffer.push(record);
+  } else {
+    // For demo/practice send immediately
+    sendToGoogleSheet(record);
+  }
+
+  // Show feedback for demo phase only, not for main trials
+  if(State.phase === "demo"){
+    showFeedback(isCorrect);
+    await sleep(CONFIG.feedbackMs);
+  }
+
+  primeDisplay.textContent = "";
+  responseChoices.classList.add("hidden");
+  responseChoices.style.pointerEvents = 'none';
+  clearFeedback();
+
+  State.trialIndex += 1;
+  loadTrial();
+}
+
+document.addEventListener("keydown", (e) => {
+  if(screenTrials.classList.contains("hidden")) return;
+  if(!State.awaitingChoice) return;
+  const k = e.key.toLowerCase();
+  // Ignore auto-repeated keydown events from holding a key
+  if(e.repeat) return;
+
+  // Only respond to f/j when awaiting choice (i.e., after prime and target shown)
+  if(k === "f"){
+    e.preventDefault();
+    recordChoice("left");
+  }
+  if(k === "j"){
+    e.preventDefault();
+    recordChoice("right");
+  }
+});
+
+// Allow clicking the visible choice panels to record responses
+(() => {
+  try{
+    const panels = responseChoices.querySelectorAll('.choice-panel');
+    if(panels && panels.length >= 2){
+      panels[0].addEventListener('click', () => recordChoice('left'));
+      panels[1].addEventListener('click', () => recordChoice('right'));
+    }
+  }catch(e){ /* ignore if element not ready */ }
+})();
+
+function finishStudy(){
+  hide("screen-trials");
+  show("screen-demographics");
+}
+
+async function recordDemographic(response){
+  // save fluency in state
+  State.fluency = response;
+
+  // send a demographics row
+  await sendToGoogleSheet({
+    participant: State.participantId,
+    block: "Demographics",
+    trial_id: "demographics",
+    fluency: response,
+    timestamp_iso: new Date().toISOString(),
+  });
+
+  // send buffered main-trial records now that we have `fluency`
+  if(State.recordBuffer && State.recordBuffer.length > 0){
+    for(const rec of State.recordBuffer){
+      // ensure fluency field is present
+      rec.fluency = State.fluency;
+      // send each record (don't await all simultaneously to avoid network bursts)
+      await sendToGoogleSheet(rec);
+      await sleep(120);
+    }
+    // clear buffer after sending
+    State.recordBuffer = [];
+  }
+
+  hide("screen-demographics");
+  show("screen-finish");
+}
+
+// Demographics selection handling: enable submit after a choice is selected
+(() => {
+  let selected = null;
+  const demContainer = document.getElementById('demChoices');
+  const submitBtn = document.getElementById('submitDemographicsBtn');
+  if(demContainer && submitBtn){
+    demContainer.querySelectorAll('.choice-panel').forEach(panel => {
+      panel.addEventListener('click', () => {
+        // clear previous selection
+        demContainer.querySelectorAll('.choice-panel').forEach(p => p.classList.remove('selected'));
+        panel.classList.add('selected');
+        selected = panel.getAttribute('data-value');
+        submitBtn.disabled = false;
+      });
+    });
+    submitBtn.addEventListener('click', () => {
+      if(!selected) return;
+      recordDemographic(selected);
+    });
+  }
+})();
+
+document.getElementById("splashBtn").onclick = async () => {
+  const btn = document.getElementById("splashBtn");
+  btn.disabled = true;
+  btn.textContent = "Loading trials...";
+
+  // assign a sequential participant number (1,2,3...) stored in localStorage
+  State.participantId = String(getNextParticipantNumber());
+  const ok = await loadAllTrials();
+
+  btn.disabled = false;
+  btn.textContent = "Continue";
+  if(!ok) return;
+
+  hide("screen-splash");
+  show("screen-instructions");
+};
+
+document.getElementById("instructionsNextBtn").onclick = () => {
+  hide("screen-instructions");
+  show("screen-demo-practice");
+};
+
+document.getElementById("startDemoPracticeBtn").onclick = () => {
+  hide("screen-demo-practice");
+  startDemoPractice();
+};
+
+document.getElementById("startMainBtn").onclick = () => {
+  startMain();
+};
+</script>
+
+</body>
+</html>

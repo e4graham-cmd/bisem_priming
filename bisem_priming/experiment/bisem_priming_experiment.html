@@ -465,7 +465,7 @@ function startMain(){
   const attentionPositions = [40, 80, 120];
   for(const pos of attentionPositions){
     if(pos <= sequence.length){
-      const expectedKey = Math.random() < 0.5 ? 'f' : 'j';
+      const expectedKey = Math.random() < 0.5 ? 'd' : 'k';
       const att = {
         trial_id: `attention_${pos}`,
         attention: true,
@@ -556,8 +556,8 @@ async function recordChoice(side){
   let isCorrect = response === trial.correct_response;
 
   if(trial && trial.attention){
-    const pressedKey = side === 'left' ? 'f' : 'j';
-    isCorrect = pressedKey === (trial.expectedKey || 'f');
+    const pressedKey = side === 'left' ? 'd' : 'k';
+    isCorrect = pressedKey === (trial.expectedKey || 'd');
     response = pressedKey.toUpperCase();
   }
 
@@ -598,13 +598,30 @@ document.addEventListener("keydown", (e) => {
   if(!State.awaitingChoice) return;
   const k = e.key.toLowerCase();
   if(e.repeat) return;
-  if(k === "f"){
-    e.preventDefault();
-    recordChoice("left");
-  }
-  if(k === "j"){
-    e.preventDefault();
-    recordChoice("right");
+
+  const currentT = currentTrial();
+  const isAttention = currentT && currentT.attention;
+
+  if(!isAttention){
+    // Normal trials: F and J only
+    if(k === "f"){
+      e.preventDefault();
+      recordChoice("left");
+    }
+    if(k === "j"){
+      e.preventDefault();
+      recordChoice("right");
+    }
+  } else {
+    // Attention checks: D and K only
+    if(k === "d"){
+      e.preventDefault();
+      recordChoice("left");
+    }
+    if(k === "k"){
+      e.preventDefault();
+      recordChoice("right");
+    }
   }
 });
 

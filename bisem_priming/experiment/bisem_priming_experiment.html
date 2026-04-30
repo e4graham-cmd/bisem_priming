@@ -23,6 +23,12 @@
     background:#fafafa;
     text-align:center;
     user-select:none;
+    cursor:pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .choice-panel.selected {
+    border:2px solid #007acc;
+    background:#e8f4ff;
   }
   .choice-key {
     font-size:18px;
@@ -120,7 +126,7 @@
 
 <div class="card hidden" id="screen-demographics">
   <h1>Almost done!</h1>
-  <p>Before finishing, you will be requested to respond to the demographic question below.</p>
+  <p>Please answer the question below.</p>
   <p style="margin-top:20px;"><strong>Did you begin learning Spanish before the age of 5?</strong></p>
   <div class="choices" style="margin-top:14px;" id="demChoices">
     <div class="choice-panel" data-value="yes">
@@ -181,17 +187,13 @@ const feedbackEl = document.getElementById("feedback");
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 function shuffleNoConsecutive(arr, getKey){
-  // Fisher-Yates shuffle
   const a = [...arr];
   for(let i=a.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
     [a[i],a[j]]=[a[j],a[i]];
   }
-  
-  // If any consecutive items have the same key, swap with a later item
   for(let i=0; i<a.length-1; i++){
     if(getKey(a[i]) === getKey(a[i+1])){
-      // Find a position further ahead with a different key
       let swapped = false;
       for(let k=i+2; k<a.length; k++){
         if(getKey(a[k]) !== getKey(a[i])){
@@ -200,7 +202,6 @@ function shuffleNoConsecutive(arr, getKey){
           break;
         }
       }
-      // If no different key found ahead, look backward
       if(!swapped){
         for(let k=i; k>=0; k--){
           if(getKey(a[k]) !== getKey(a[i+1])){
@@ -296,7 +297,6 @@ function parseMainTrials(csvText){
     const wordTarget = cells[wordIdx] || "";
     const nonwordTarget = cells[nonwordIdx] || "";
     
-    // Get all four prime types
     const primes = [
       { prime: cells[engRelIdx], label: "eng_rel_prime" },
       { prime: cells[engUnrelIdx], label: "eng_un_prime" },
@@ -349,7 +349,6 @@ function parsePracticeTrials(csvText){
     const wordTarget = cells[wordIdx] || "";
     const nonwordTarget = cells[nonwordIdx] || "";
     
-    // Get all four prime types (same as main trials)
     const primes = [
       { prime: cells[engRelIdx], label: "eng_rel_prime" },
       { prime: cells[engUnrelIdx], label: "eng_un_prime" },
@@ -419,11 +418,9 @@ function showFeedback(isCorrect){
 
 function updateProgress(){
   const t = currentTrial();
-  // Count only non-attention trials for progress display
   const totalMain = State.activeTrials.filter(x => x && !x.attention).length || 0;
   const completedMain = State.activeTrials.slice(0, State.trialIndex).filter(x => x && !x.attention).length || 0;
 
-  // Progress bar should reflect main-trial progress (exclude attention checks)
   let pct = 0;
   if(totalMain > 0){
     if(t && t.attention){
@@ -437,7 +434,6 @@ function updateProgress(){
   let label = "Trial";
   if(State.phase === "demo") label = "Practice Trial";
 
-  // Attention trials show a special label and do not include numeric counts
   if(t && t.attention){
     trialTitle.textContent = "Attention check";
   } else {
@@ -465,11 +461,8 @@ function startPractice(){
 
 function startMain(){
   State.phase = "main";
-  // create shuffled main trials then insert attention checks after specified positions
   let sequence = shuffleNoConsecutive([...MAIN_TRIALS], t => t.target_word);
-  // positions (1-based): after trial 40, 80, 120 -> insert at indices 40, 80, 120
   const attentionPositions = [40, 80, 120];
-  // insert attention checks; adjust for prior insertions by inserting in ascending order
   for(const pos of attentionPositions){
     if(pos <= sequence.length){
       const expectedKey = Math.random() < 0.5 ? 'f' : 'j';
@@ -477,7 +470,6 @@ function startMain(){
         trial_id: `attention_${pos}`,
         attention: true,
         expectedKey: expectedKey,
-        // keep metadata fields for consistency
         prime_text: "",
         target_word: "",
         trial_type: 'attention',
@@ -498,7 +490,6 @@ function loadTrial(){
   const trial = currentTrial();
   if(!trial){
     if(State.phase === "demo"){
-      // Demo practice done — show practice-complete page before main task
       hide("screen-trials");
       show("screen-practice-done");
       return;
@@ -520,18 +511,12 @@ function loadTrial(){
 }
 
 async function runTrialSequence(trial, token){
-  // Handle attention checks differently: show instruction and enable responses immediately
   if(trial && trial.attention){
-    // show instruction; only F should be bolded per spec
     const expected = (trial.expectedKey || 'f').toLowerCase();
-    // Bold the instructed letter (F or J)
-    primeDisplay.innerHTML = `Please press <strong>${expected.toUpperCase()}</strong>.`;
-    // set target onset timestamp for RT calculation
+    primeDisplay.innerHTML = `Please press&nbsp;<strong>${expected.toUpperCase()}</strong>.`;
     State.targetOnsetTs = nowMs();
-    // hide the choice panels for attention checks (no clickable options needed)
     responseChoices.classList.add("hidden");
     responseChoices.style.pointerEvents = 'none';
-    // still accept F/J key presses
     State.awaitingChoice = true;
     return;
   }
@@ -555,6 +540,7 @@ async function runTrialSequence(trial, token){
 
   responseChoices.classList.remove("hidden");
   responseChoices.style.pointerEvents = 'auto';
+  responseChoices.style.display = 'flex';
   State.awaitingChoice = true;
 }
 
@@ -564,17 +550,14 @@ async function recordChoice(side){
 
   const trial = currentTrial();
   const rtFloat = (nowMs() - (State.targetOnsetTs ?? nowMs()));
-  const rtFormatted = Number(rtFloat).toFixed(3); // ms with up to 3 decimal places
+  const rtFormatted = Number(rtFloat).toFixed(3);
 
-  // Default response mapping (for standard trials)
   let response = side === "left" ? "word" : "nonword";
   let isCorrect = response === trial.correct_response;
 
-  // Special handling for attention checks: expectedKey is 'f' or 'j'
   if(trial && trial.attention){
     const pressedKey = side === 'left' ? 'f' : 'j';
     isCorrect = pressedKey === (trial.expectedKey || 'f');
-    // for attention rows, record the pressed key (uppercase)
     response = pressedKey.toUpperCase();
   }
 
@@ -593,15 +576,9 @@ async function recordChoice(side){
     timestamp_iso: new Date().toISOString(),
   };
 
-  // For main trials, buffer records until demographics are provided so we can attach `fluency`.
-  if(State.phase === 'main'){
-    State.recordBuffer.push(record);
-  } else {
-    // For demo/practice send immediately
-    sendToGoogleSheet(record);
-  }
+  // Send all trial records immediately regardless of phase
+  sendToGoogleSheet(record);
 
-  // Show feedback for demo phase only, not for main trials
   if(State.phase === "demo"){
     showFeedback(isCorrect);
     await sleep(CONFIG.feedbackMs);
@@ -620,10 +597,7 @@ document.addEventListener("keydown", (e) => {
   if(screenTrials.classList.contains("hidden")) return;
   if(!State.awaitingChoice) return;
   const k = e.key.toLowerCase();
-  // Ignore auto-repeated keydown events from holding a key
   if(e.repeat) return;
-
-  // Only respond to f/j when awaiting choice (i.e., after prime and target shown)
   if(k === "f"){
     e.preventDefault();
     recordChoice("left");
@@ -634,7 +608,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Allow clicking the visible choice panels to record responses
 (() => {
   try{
     const panels = responseChoices.querySelectorAll('.choice-panel');
@@ -651,36 +624,23 @@ function finishStudy(){
 }
 
 async function recordDemographic(response){
-  // save fluency in state
   State.fluency = response;
 
-  // send a demographics row
-  await sendToGoogleSheet({
+  // Advance to finish screen immediately
+  hide("screen-demographics");
+  show("screen-finish");
+
+  // Send demographics row on its own
+  sendToGoogleSheet({
     participant: State.participantId,
     block: "Demographics",
     trial_id: "demographics",
     fluency: response,
     timestamp_iso: new Date().toISOString(),
   });
-
-  // send buffered main-trial records now that we have `fluency`
-  if(State.recordBuffer && State.recordBuffer.length > 0){
-    for(const rec of State.recordBuffer){
-      // ensure fluency field is present
-      rec.fluency = State.fluency;
-      // send each record (don't await all simultaneously to avoid network bursts)
-      await sendToGoogleSheet(rec);
-      await sleep(120);
-    }
-    // clear buffer after sending
-    State.recordBuffer = [];
-  }
-
-  hide("screen-demographics");
-  show("screen-finish");
 }
 
-// Demographics selection handling: enable submit after a choice is selected
+// Demographics selection handling
 (() => {
   let selected = null;
   const demContainer = document.getElementById('demChoices');
@@ -688,8 +648,9 @@ async function recordDemographic(response){
   if(demContainer && submitBtn){
     demContainer.querySelectorAll('.choice-panel').forEach(panel => {
       panel.addEventListener('click', () => {
-        // clear previous selection
+        // Clear previous selection highlight
         demContainer.querySelectorAll('.choice-panel').forEach(p => p.classList.remove('selected'));
+        // Highlight clicked panel
         panel.classList.add('selected');
         selected = panel.getAttribute('data-value');
         submitBtn.disabled = false;
@@ -707,7 +668,6 @@ document.getElementById("splashBtn").onclick = async () => {
   btn.disabled = true;
   btn.textContent = "Loading trials...";
 
-  // assign a sequential participant number (1,2,3...) stored in localStorage
   State.participantId = String(getNextParticipantNumber());
   const ok = await loadAllTrials();
 

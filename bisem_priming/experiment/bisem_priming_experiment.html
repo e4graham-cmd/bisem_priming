@@ -235,22 +235,28 @@ function hide(id){ document.getElementById(id).classList.add("hidden"); }
 function currentTrial(){ return State.activeTrials[State.trialIndex]; }
 
 async function sendToGoogleSheet(obj){
+  // Single-row send used for practice/demo trials
   const fd = new FormData();
   for(const k in obj) fd.append(k, obj[k] ?? "");
-  const statusEl = document.getElementById('postStatus');
   try{
     const resp = await fetch(SCRIPT_URL, { method: 'POST', body: fd });
-    if(!resp.ok){
-      console.error('Sheet POST failed', resp.status);
-      if(statusEl){ showPostStatus('Save failed'); }
-    } else {
-      const txt = await resp.text();
-      console.log('Sheet POST OK:', txt);
-      if(statusEl){ showPostStatus('Saved'); }
-    }
+    if(!resp.ok) console.error('Sheet POST failed', resp.status);
+    else console.log('Sheet POST OK:', await resp.text());
   }catch(err){
     console.error('Sheet POST error:', err);
-    if(statusEl){ showPostStatus('Save error'); }
+  }
+}
+
+async function sendBatchToGoogleSheet(records){
+  // Send batch as FormData to avoid CORS preflight issues
+  const fd = new FormData();
+  fd.append('batch', JSON.stringify(records));
+  try{
+    const resp = await fetch(SCRIPT_URL, { method: 'POST', body: fd });
+    if(!resp.ok) console.error('Batch POST failed', resp.status);
+    else console.log('Batch POST OK:', await resp.text());
+  }catch(err){
+    console.error('Batch POST error:', err);
   }
 }
 
@@ -575,21 +581,22 @@ async function recordChoice(side){
 
   const record = {
     participant: State.participantId,
-    block: State.phase === 'demo' ? 'Practice' : (State.phase === 'practice' ? 'Practice' : 'Main'),
-    trial_index: State.trialIndex + 1,
-    trial_id: trial.trial_id,
-    source_row_id: trial.source_row_id || "",
     prime: trial.attention ? "attention" : (trial.prime_text || ""),
     target: trial.attention ? ( (trial.expectedKey||"").toUpperCase() ) : (trial.target_word || ""),
+    word_stat: trial.attention ? "" : (trial.target_label === "word_target" ? "word" : "non"),
+    sem_rel: trial.attention ? "" : (trial.trial_type.includes("_rel_") ? "yes" : trial.trial_type.includes("_un_") ? "no" : ""),
+    lang_rel: trial.attention ? "" : (trial.trial_type.startsWith("eng") ? "same" : trial.trial_type.startsWith("span") ? "different" : ""),
     reaction_time: rtFormatted,
     accuracy: isCorrect ? 'correct' : 'incorrect',
     fluency: State.fluency || "",
-    choice: response,
-    timestamp_iso: new Date().toISOString(),
   };
 
-  // Send all trial records immediately regardless of phase
-  sendToGoogleSheet(record);
+  // Buffer main trial records; send practice/demo immediately
+  if(State.phase === 'main'){
+    State.recordBuffer.push(record);
+  } else {
+    sendToGoogleSheet(record);
+  }
 
   if(State.phase === "demo"){
     showFeedback(isCorrect);
@@ -659,14 +666,18 @@ async function recordDemographic(response){
   hide("screen-demographics");
   show("screen-finish");
 
-  // Send demographics row on its own
-  sendToGoogleSheet({
+  // Attach fluency to every buffered main trial record
+  const allRecords = State.recordBuffer.map(rec => ({ ...rec, fluency: response }));
+
+  // Add a demographics row at the end
+  allRecords.push({
     participant: State.participantId,
-    block: "Demographics",
-    trial_id: "demographics",
     fluency: response,
-    timestamp_iso: new Date().toISOString(),
   });
+
+  // Send everything in one batch
+  sendBatchToGoogleSheet(allRecords);
+  State.recordBuffer = [];
 }
 
 // Demographics selection handling

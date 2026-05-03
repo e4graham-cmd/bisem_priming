@@ -469,6 +469,7 @@ function startMain(){
   State.phase = "main";
   let sequence = shuffleNoConsecutive([...MAIN_TRIALS], t => t.target_word);
   const attentionPositions = [40, 80, 120];
+  let insertedCount = 0;
   for(const pos of attentionPositions){
     if(pos <= sequence.length){
       const expectedKey = Math.random() < 0.5 ? 'd' : 'k';
@@ -482,7 +483,8 @@ function startMain(){
         target_label: '',
         phase: 'main'
       };
-      sequence.splice(pos, 0, att);
+      sequence.splice(pos + insertedCount, 0, att);
+      insertedCount++;
     }
   }
   State.activeTrials = sequence;
@@ -668,12 +670,6 @@ async function recordDemographic(response){
 
   // Attach fluency to every buffered main trial record
   const allRecords = State.recordBuffer.map(rec => ({ ...rec, fluency: response }));
-
-  // Add a demographics row at the end
-  allRecords.push({
-    participant: State.participantId,
-    fluency: response,
-  });
 
   // Send everything in one batch
   sendBatchToGoogleSheet(allRecords);
